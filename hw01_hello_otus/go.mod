@@ -1,4 +1,4 @@
-module github.com/DalerBakhriev/hw01_hello_otus
+module github.com/DalerBakhriev/otus_go_homeworks/hw01_hello_otus
 
 go 1.16
 
