@@ -20,24 +20,41 @@ func Unpack(s string) (string, error) {
 
 	stringBuilder := &strings.Builder{}
 	currLetter := rune(s[0])
+	escaping := true // флаг экранирования
 
 	for _, letter := range s[1:] {
 		if !unicode.IsDigit(letter) {
-			if !unicode.IsDigit(currLetter) {
+			if string(letter) == `\` {
+				if escaping {
+					stringBuilder.WriteRune(currLetter)
+				}
+				escaping = !escaping
+				currLetter = letter
+				continue
+			}
+			if string(currLetter) == `\` {
+				return "", ErrInvalidString
+			}
+			if !unicode.IsDigit(currLetter) || escaping {
 				stringBuilder.WriteRune(currLetter)
 			}
 			currLetter = letter
 			continue
 		}
 
-		if unicode.IsDigit(currLetter) {
+		if unicode.IsDigit(currLetter) && !escaping {
 			return "", ErrInvalidString
 		}
-		multiplier, _ := strconv.Atoi(string(letter))
-		stringBuilder.WriteString(strings.Repeat(string(currLetter), multiplier))
+		if (string(currLetter) != `\`) || (string(currLetter) == `\` && escaping) {
+			multiplier, _ := strconv.Atoi(string(letter))
+			stringBuilder.WriteString(strings.Repeat(string(currLetter), multiplier))
+			escaping = false
+		} else {
+			escaping = true
+		}
 		currLetter = letter
 	}
-	if !unicode.IsDigit(currLetter) {
+	if !unicode.IsDigit(currLetter) || escaping {
 		stringBuilder.WriteRune(currLetter)
 	}
 
