@@ -23,34 +23,34 @@ func Unpack(s string) (string, error) {
 	escaping := true // флаг экранирования
 
 	for _, letter := range s[1:] {
-		if !unicode.IsDigit(letter) {
-			if string(letter) == `\` {
-				if escaping {
-					stringBuilder.WriteRune(currLetter)
-				}
-				escaping = !escaping
-				currLetter = letter
-				continue
-			}
-			if string(currLetter) == `\` {
+		if unicode.IsDigit(letter) {
+			if unicode.IsDigit(currLetter) && !escaping {
 				return "", ErrInvalidString
 			}
-			if !unicode.IsDigit(currLetter) || escaping {
-				stringBuilder.WriteRune(currLetter)
+			if (string(currLetter) != `\`) || (string(currLetter) == `\` && escaping) {
+				multiplier, _ := strconv.Atoi(string(letter))
+				stringBuilder.WriteString(strings.Repeat(string(currLetter), multiplier))
+				escaping = false
+			} else {
+				escaping = true
 			}
 			currLetter = letter
 			continue
 		}
 
-		if unicode.IsDigit(currLetter) && !escaping {
+		if string(letter) == `\` {
+			if escaping {
+				stringBuilder.WriteRune(currLetter)
+			}
+			escaping = !escaping
+			currLetter = letter
+			continue
+		}
+		if string(currLetter) == `\` {
 			return "", ErrInvalidString
 		}
-		if (string(currLetter) != `\`) || (string(currLetter) == `\` && escaping) {
-			multiplier, _ := strconv.Atoi(string(letter))
-			stringBuilder.WriteString(strings.Repeat(string(currLetter), multiplier))
-			escaping = false
-		} else {
-			escaping = true
+		if !unicode.IsDigit(currLetter) || escaping {
+			stringBuilder.WriteRune(currLetter)
 		}
 		currLetter = letter
 	}
