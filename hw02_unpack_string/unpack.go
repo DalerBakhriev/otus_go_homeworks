@@ -37,7 +37,9 @@ func Unpack(s string) (string, error) {
 		stringBuilder.WriteString(strings.Repeat(string(currLetter), multiplier))
 		currLetter = letter
 	}
-	stringBuilder.WriteRune(currLetter)
+	if !unicode.IsDigit(currLetter) {
+		stringBuilder.WriteRune(currLetter)
+	}
 
 	return stringBuilder.String(), nil
 }
