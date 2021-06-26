@@ -7,54 +7,76 @@ import (
 	"unicode"
 )
 
+const (
+	digitSymbol  = "digit"
+	letterSymbol = "letter"
+	slashSymbol  = "slash"
+)
+
 var ErrInvalidString = errors.New("invalid string")
+
+func setState(symbol rune) string {
+	var state string
+	if string(symbol) == `\` {
+		return slashSymbol
+	}
+
+	if unicode.IsDigit(symbol) {
+		state = digitSymbol
+	} else {
+		state = letterSymbol
+	}
+
+	return state
+}
 
 func Unpack(s string) (string, error) {
 	if s == "" {
 		return s, nil
 	}
 
-	if unicode.IsDigit(rune(s[0])) {
+	if unicode.IsDigit([]rune(s)[0]) {
 		return "", ErrInvalidString
 	}
 
 	stringBuilder := &strings.Builder{}
 	prevLetter := []rune(s)[0]
-	escaping := true // флаг экранирования
+	prevLetterIsEscaped := true // флаг экранирования
 
-	for _, letter := range s[1:] {
-		if unicode.IsDigit(letter) {
-			if unicode.IsDigit(prevLetter) && !escaping {
+	for _, currLetter := range s[1:] {
+		state := setState(currLetter)
+
+		switch state {
+		case digitSymbol:
+			if unicode.IsDigit(prevLetter) && !prevLetterIsEscaped {
 				return "", ErrInvalidString
 			}
-			if (string(prevLetter) != `\`) || (string(prevLetter) == `\` && escaping) {
-				multiplier, _ := strconv.Atoi(string(letter))
+			if string(prevLetter) != `\` || prevLetterIsEscaped {
+				multiplier, _ := strconv.Atoi(string(currLetter))
 				stringBuilder.WriteString(strings.Repeat(string(prevLetter), multiplier))
-				escaping = false
+				prevLetterIsEscaped = false
 			} else {
-				escaping = true
+				prevLetterIsEscaped = true
 			}
-			prevLetter = letter
-			continue
-		}
 
-		if string(letter) == `\` {
-			if escaping {
+		case letterSymbol:
+			if string(prevLetter) == `\` {
+				return "", ErrInvalidString
+			}
+			if !unicode.IsDigit(prevLetter) || prevLetterIsEscaped {
 				stringBuilder.WriteRune(prevLetter)
 			}
-			escaping = !escaping
-			prevLetter = letter
-			continue
+
+		case slashSymbol:
+			if prevLetterIsEscaped {
+				stringBuilder.WriteRune(prevLetter)
+			}
+			prevLetterIsEscaped = !prevLetterIsEscaped
 		}
-		if string(prevLetter) == `\` {
-			return "", ErrInvalidString
-		}
-		if !unicode.IsDigit(prevLetter) || escaping {
-			stringBuilder.WriteRune(prevLetter)
-		}
-		prevLetter = letter
+
+		prevLetter = currLetter
 	}
-	if !unicode.IsDigit(prevLetter) || escaping {
+	if !unicode.IsDigit(prevLetter) || prevLetterIsEscaped {
 		stringBuilder.WriteRune(prevLetter)
 	}
 
