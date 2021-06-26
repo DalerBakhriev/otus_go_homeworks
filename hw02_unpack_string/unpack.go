@@ -19,43 +19,43 @@ func Unpack(s string) (string, error) {
 	}
 
 	stringBuilder := &strings.Builder{}
-	currLetter := rune(s[0])
+	prevLetter := []rune(s)[0]
 	escaping := true // флаг экранирования
 
 	for _, letter := range s[1:] {
 		if unicode.IsDigit(letter) {
-			if unicode.IsDigit(currLetter) && !escaping {
+			if unicode.IsDigit(prevLetter) && !escaping {
 				return "", ErrInvalidString
 			}
-			if (string(currLetter) != `\`) || (string(currLetter) == `\` && escaping) {
+			if (string(prevLetter) != `\`) || (string(prevLetter) == `\` && escaping) {
 				multiplier, _ := strconv.Atoi(string(letter))
-				stringBuilder.WriteString(strings.Repeat(string(currLetter), multiplier))
+				stringBuilder.WriteString(strings.Repeat(string(prevLetter), multiplier))
 				escaping = false
 			} else {
 				escaping = true
 			}
-			currLetter = letter
+			prevLetter = letter
 			continue
 		}
 
 		if string(letter) == `\` {
 			if escaping {
-				stringBuilder.WriteRune(currLetter)
+				stringBuilder.WriteRune(prevLetter)
 			}
 			escaping = !escaping
-			currLetter = letter
+			prevLetter = letter
 			continue
 		}
-		if string(currLetter) == `\` {
+		if string(prevLetter) == `\` {
 			return "", ErrInvalidString
 		}
-		if !unicode.IsDigit(currLetter) || escaping {
-			stringBuilder.WriteRune(currLetter)
+		if !unicode.IsDigit(prevLetter) || escaping {
+			stringBuilder.WriteRune(prevLetter)
 		}
-		currLetter = letter
+		prevLetter = letter
 	}
-	if !unicode.IsDigit(currLetter) || escaping {
-		stringBuilder.WriteRune(currLetter)
+	if !unicode.IsDigit(prevLetter) || escaping {
+		stringBuilder.WriteRune(prevLetter)
 	}
 
 	return stringBuilder.String(), nil
