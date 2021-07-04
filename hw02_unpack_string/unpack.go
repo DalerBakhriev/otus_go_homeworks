@@ -7,28 +7,7 @@ import (
 	"unicode"
 )
 
-const (
-	digitSymbol  = "digit"
-	letterSymbol = "letter"
-	slashSymbol  = "slash"
-)
-
 var ErrInvalidString = errors.New("invalid string")
-
-func setState(symbol rune) string {
-	var state string
-	if string(symbol) == `\` {
-		return slashSymbol
-	}
-
-	if unicode.IsDigit(symbol) {
-		state = digitSymbol
-	} else {
-		state = letterSymbol
-	}
-
-	return state
-}
 
 func Unpack(s string) (string, error) {
 	if s == "" {
@@ -44,10 +23,8 @@ func Unpack(s string) (string, error) {
 	prevLetterIsEscaped := true // флаг экранирования
 
 	for _, currLetter := range s[1:] {
-		state := setState(currLetter)
-
-		switch state {
-		case digitSymbol:
+		switch {
+		case unicode.IsDigit(currLetter):
 			if unicode.IsDigit(prevLetter) && !prevLetterIsEscaped {
 				return "", ErrInvalidString
 			}
@@ -59,19 +36,19 @@ func Unpack(s string) (string, error) {
 				prevLetterIsEscaped = true
 			}
 
-		case letterSymbol:
+		case string(currLetter) == `\`:
+			if prevLetterIsEscaped {
+				stringBuilder.WriteRune(prevLetter)
+			}
+			prevLetterIsEscaped = !prevLetterIsEscaped
+
+		default:
 			if string(prevLetter) == `\` {
 				return "", ErrInvalidString
 			}
 			if !unicode.IsDigit(prevLetter) || prevLetterIsEscaped {
 				stringBuilder.WriteRune(prevLetter)
 			}
-
-		case slashSymbol:
-			if prevLetterIsEscaped {
-				stringBuilder.WriteRune(prevLetter)
-			}
-			prevLetterIsEscaped = !prevLetterIsEscaped
 		}
 
 		prevLetter = currLetter
