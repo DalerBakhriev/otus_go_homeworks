@@ -41,7 +41,6 @@ var text = `Как видите, он  спускается  по  лестни�
 		В этот вечер...`
 
 func TestTop10(t *testing.T) {
-
 	testCases := []struct {
 		name     string
 		input    string
@@ -104,5 +103,4 @@ func TestTop10(t *testing.T) {
 			require.Equal(t, tc.expected, Top10(tc.input))
 		})
 	}
-
 }
