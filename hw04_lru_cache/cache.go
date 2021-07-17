@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-var ErrCacheWithZeroCapacity error = errors.New("Could not initalize cache with zero capacity")
+var ErrCacheWithZeroOrNegativeCapacity error = errors.New("Could not initalize cache with zero capacity")
 
 type Key string
 
@@ -20,7 +20,6 @@ type lruCache struct {
 	capacity int
 	queue    List
 	items    map[Key]*ListItem
-	cacheItems
 }
 
 type cacheItem struct {
@@ -28,62 +27,39 @@ type cacheItem struct {
 	value interface{}
 }
 
-type cacheItems []*cacheItem
-
+// Cache instance initializer. Panics in case of zero or negative capacity
 func NewCache(capacity int) Cache {
-	if capacity == 0 {
-		panic(ErrCacheWithZeroCapacity)
+	if capacity <= 0 {
+		panic(ErrCacheWithZeroOrNegativeCapacity)
 	}
 	return &lruCache{
-		capacity:   capacity,
-		queue:      NewList(),
-		items:      make(map[Key]*ListItem, capacity),
-		cacheItems: cacheItems(make([]*cacheItem, 0, capacity)),
+		capacity: capacity,
+		queue:    NewList(),
+		items:    make(map[Key]*ListItem, capacity),
 	}
-}
-
-func (ci cacheItems) findIndex(key Key) int {
-	index := -1
-	for i, cacheItem := range ci {
-		if cacheItem.key == key {
-			index = i
-		}
-	}
-	return index
-}
-
-func (ci cacheItems) moveFront(key Key, value interface{}) {
-	currCacheItem := &cacheItem{key, value}
-	indexForReplace := ci.findIndex(key)
-	// Нужно сначала удалить элемент по найденному индексу, а затем добавить его в конец
-	ci = append(ci[:indexForReplace], ci[indexForReplace+1:]...)
-	ci = append(ci, currCacheItem)
 }
 
 func (c *lruCache) Set(key Key, value interface{}) bool {
 
 	val, ok := c.items[key]
+	newValue := &cacheItem{key, value}
 	if ok {
-		val.Value = value
+		val.Value = newValue
 		c.Lock()
 		c.items[key] = val
 		c.Unlock()
-		c.queue.PushFront(value)
-		c.cacheItems.moveFront(key, value)
+		c.queue.MoveToFront(val)
 	} else {
-		c.queue.PushFront(value)
+		c.queue.PushFront(newValue)
 		c.Lock()
 		c.items[key] = c.queue.Front()
 		c.Unlock()
-		c.cacheItems = append(c.cacheItems, &cacheItem{key, value})
 	}
 
 	if c.queue.Len() > c.capacity {
 		lastElement := c.queue.Back()
 		c.queue.Remove(lastElement)
-		cacheItemToDelete := c.cacheItems[0]
-		delete(c.items, cacheItemToDelete.key)
-		c.cacheItems = c.cacheItems[1:]
+		delete(c.items, lastElement.Value.(*cacheItem).key)
 	}
 
 	return ok
@@ -95,9 +71,8 @@ func (c *lruCache) Get(key Key) (interface{}, bool) {
 	if !ok {
 		return nil, false
 	}
-	c.queue.PushFront(val.Value)
-	c.cacheItems.moveFront(key, val.Value)
-	return val.Value, true
+	c.queue.MoveToFront(val)
+	return val.Value.(*cacheItem).value, true
 }
 
 func (c *lruCache) Clear() {
@@ -105,5 +80,4 @@ func (c *lruCache) Clear() {
 	c.Lock()
 	c.items = make(map[Key]*ListItem, c.capacity)
 	c.Lock()
-	c.cacheItems = cacheItems(make([]*cacheItem, 0, c.capacity))
 }
