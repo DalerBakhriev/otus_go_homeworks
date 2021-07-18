@@ -49,8 +49,97 @@ func TestCache(t *testing.T) {
 		require.Nil(t, val)
 	})
 
-	t.Run("purge logic", func(t *testing.T) {
+	t.Run("removing elements", func(t *testing.T) {
+		c := NewCache(3)
+		c.Set("a", 1)
+		c.Set("b", 2)
+		c.Set("c", 3)
+		c.Set("d", 4)
 
+		val, ok := c.Get("b")
+		require.True(t, ok)
+		require.Equal(t, 2, val)
+
+		val, ok = c.Get("c")
+		require.True(t, ok)
+		require.Equal(t, 3, val)
+
+		val, ok = c.Get("d")
+		require.True(t, ok)
+		require.Equal(t, 4, val)
+
+		val, ok = c.Get("a")
+		require.False(t, ok)
+		require.Nil(t, val)
+
+		c.Set("e", 5)
+		val, ok = c.Get("e")
+		require.True(t, ok)
+		require.Equal(t, 5, val)
+
+		val, ok = c.Get("b")
+		require.False(t, ok)
+		require.Nil(t, val)
+
+		c.Set("f", 6)
+		val, ok = c.Get("f")
+		require.True(t, ok)
+		require.Equal(t, 6, val)
+
+		val, ok = c.Get("c")
+		require.False(t, ok)
+		require.Nil(t, val)
+	})
+
+	t.Run("removing element after update", func(t *testing.T) {
+		c := NewCache(2)
+		c.Set("a", 1)
+		c.Set("b", 2)
+
+		c.Set("b", 1)
+		c.Set("a", 2)
+
+		val, ok := c.Get("a")
+		require.True(t, ok)
+		require.Equal(t, 2, val)
+
+		val, ok = c.Get("b")
+		require.True(t, ok)
+		require.Equal(t, 1, val)
+
+		c.Set("c", 3)
+		// Элемент "a" обновлялся последним поэтому должен вытолкнуться элемент "b"
+
+		val, ok = c.Get("a")
+		require.True(t, ok)
+		require.Equal(t, 2, val)
+
+		val, ok = c.Get("b")
+		require.False(t, ok)
+		require.Nil(t, val)
+	})
+
+	t.Run("Wrong cache initialization (zero)", func(t *testing.T) {
+		require.PanicsWithError(t, ErrCacheWithZeroOrNegativeCapacity.Error(), func() { NewCache(0) })
+	})
+
+	t.Run("Wrong cache initialization (negative)", func(t *testing.T) {
+		require.PanicsWithError(t, ErrCacheWithZeroOrNegativeCapacity.Error(), func() { NewCache(-1) })
+	})
+
+	t.Run("Clearing cache", func(t *testing.T) {
+		c := NewCache(2)
+		c.Set("a", 1)
+		c.Set("b", 2)
+
+		c.Clear()
+		val, ok := c.Get("a")
+		require.False(t, ok)
+		require.Nil(t, val)
+
+		val, ok = c.Get("b")
+		require.False(t, ok)
+		require.Nil(t, val)
 	})
 }
 
