@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-var ErrCacheWithZeroOrNegativeCapacity error = errors.New("Could not initalize cache with zero capacity")
+var ErrCacheWithZeroOrNegativeCapacity error = errors.New("could not initialize cache with zero capacity")
 
 type Key string
 
@@ -27,7 +27,7 @@ type cacheItem struct {
 	value interface{}
 }
 
-// Cache instance initializer. Panics in case of zero or negative capacity
+// Cache instance initializer. Panics in case of zero or negative capacity.
 func NewCache(capacity int) Cache {
 	if capacity <= 0 {
 		panic(ErrCacheWithZeroOrNegativeCapacity)
@@ -40,7 +40,6 @@ func NewCache(capacity int) Cache {
 }
 
 func (c *lruCache) Set(key Key, value interface{}) bool {
-
 	val, ok := c.items[key]
 	newValue := &cacheItem{key, value}
 	if ok {
@@ -66,7 +65,6 @@ func (c *lruCache) Set(key Key, value interface{}) bool {
 }
 
 func (c *lruCache) Get(key Key) (interface{}, bool) {
-
 	val, ok := c.items[key]
 	if !ok {
 		return nil, false

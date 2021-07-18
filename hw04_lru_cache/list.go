@@ -19,15 +19,13 @@ type ListItem struct {
 }
 
 func (li *ListItem) String() string {
-	next := li.Next
 	var nextValue interface{}
-	if next != nil {
+	if next := li.Next; next != nil {
 		nextValue = next.Value
 	}
 
-	prev := li.Prev
 	var prevValue interface{}
-	if prev != nil {
+	if prev := li.Prev; prev != nil {
 		prevValue = prev.Value
 	}
 
