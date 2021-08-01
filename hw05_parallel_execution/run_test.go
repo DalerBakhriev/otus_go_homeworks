@@ -3,7 +3,6 @@ package hw05parallelexecution
 import (
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"sync/atomic"
 	"testing"
@@ -12,23 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 )
-
-// Sequential version of Run function for testing
-func SequentialRun(tasks []Task, m int) error {
-
-	failedTasks := 0
-	for _, task := range tasks {
-		err := task()
-		if err != nil {
-			failedTasks++
-		}
-		if failedTasks == m {
-			return ErrErrorsLimitExceeded
-		}
-	}
-
-	return nil
-}
 
 func TestRun(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -130,30 +112,5 @@ func TestRun(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, runTasksCount, int32(tasksCount), "not all tasks were completed")
-	})
-
-	t.Run("testing concurrent execution", func(t *testing.T) {
-		tasksCount := 10_000
-		tasks := make([]Task, 0, tasksCount)
-
-		var runTasksCount int32
-
-		for i := 0; i < tasksCount; i++ {
-			tasks = append(tasks, func() error {
-				atomic.AddInt32(&runTasksCount, 1)
-				return nil
-			})
-		}
-
-		workersCount := 5
-		maxErrorsCount := 1
-		start := time.Now()
-		SequentialRun(tasks, maxErrorsCount)
-		elapsedTime := time.Since(start)
-		log.Printf("Elapsed time is %v", elapsedTime)
-		require.Eventually(t, func() bool {
-			err := Run(tasks, workersCount, maxErrorsCount)
-			return err == nil
-		}, elapsedTime*10, time.Microsecond)
 	})
 }
