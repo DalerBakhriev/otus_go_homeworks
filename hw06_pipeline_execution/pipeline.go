@@ -16,7 +16,6 @@ func ExecutePipeline(in In, done Bi, stages ...Stage) Out {
 			defer func() {
 				close(intermedCh)
 				for range outCh {
-
 				}
 			}()
 			for {
