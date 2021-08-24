@@ -43,7 +43,7 @@ func Run(tasks []Task, n, m int) error {
 	close(tasksCh)
 	wg.Wait()
 
-	if errorsNum == int32(m) && m > 0 {
+	if errorsNum >= int32(m) && m > 0 {
 		return ErrErrorsLimitExceeded
 	}
 
