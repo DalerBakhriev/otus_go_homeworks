@@ -47,7 +47,7 @@ func Copy(fromPath, toPath string, offset, limit int64) error {
 		written, err = io.CopyN(dst, barReader, limit)
 	}
 
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		log.Printf("Failed during writing %d bytes", written)
 		return err
 	}
