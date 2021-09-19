@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"os"
 )
 
 var (
@@ -20,21 +19,7 @@ func init() {
 
 func main() {
 	flag.Parse()
-	file, err := os.Open(from)
-	if err != nil {
-		log.Fatal(err)
-	}
-	buf := make([]byte, limit)
-	_, err = file.ReadAt(buf, offset)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	dst, err := os.Create(to)
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, err = dst.Write(buf)
+	err := Copy(from, to, offset, limit)
 	if err != nil {
 		log.Fatal(err)
 	}
