@@ -12,7 +12,7 @@ import (
 func TestRunCmd(t *testing.T) {
 	cmd := []string{
 		"/bin/bash",
-		"/home/daler/dev/courses/golang_otus/otus_go_homeworks/hw08_envdir_tool/testdata/echo.sh",
+		"./testdata/echo.sh",
 		"arg1=1",
 		"arg2=2",
 	}
