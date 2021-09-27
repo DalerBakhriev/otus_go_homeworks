@@ -9,19 +9,20 @@ import (
 	"strings"
 )
 
-var (
-	validationTag = regexp.MustCompile(`validate:".+"`)
+const validationTagKey = "validate"
 
-	// Validation errors
+var (
+	// Validation errors.
 	errLength       = errors.New("invalid length")
 	errNotInSet     = errors.New("value not from set")
 	errRegexp       = errors.New("value must match regular expression")
 	errMinThreshold = errors.New("value is less than minimum")
 	errMaxThreshold = errors.New("value is greater than maximum")
 
-	// Program errors
+	// Program errors.
 	errWrongType              = errors.New("wrong type: expected struct")
 	errUnknownValidationQuery = errors.New("unknown validation query")
+	errFieldType              = errors.New("invalid field type for validation")
 )
 
 type ValidationError struct {
@@ -29,19 +30,22 @@ type ValidationError struct {
 	Err   error
 }
 
+func (v ValidationError) Error() string {
+	return fmt.Sprintf("%s: %s\n", v.Field, v.Err)
+}
+
 type ValidationErrors []ValidationError
 
 func (v ValidationErrors) Error() string {
 	validationErrs := &strings.Builder{}
 	for _, validationErr := range v {
-		fieldErr := fmt.Sprintf("%s: %s\n", validationErr.Field, validationErr.Err.Error())
-		validationErrs.WriteString(fieldErr)
+		validationErrs.WriteString(validationErr.Error())
 	}
 	return validationErrs.String()
 }
 
 func ParseValidationQuery(tag reflect.StructTag) string {
-	valQs := validationTag.FindString(string(tag))
+	valQs := tag.Get(validationTagKey)
 	valQsCutPrefix := strings.ReplaceAll(valQs, "validate:", "")
 	validationQuery := strings.ReplaceAll(valQsCutPrefix, `"`, "")
 
@@ -49,21 +53,18 @@ func ParseValidationQuery(tag reflect.StructTag) string {
 }
 
 func validateLength(condition, value string) error {
-	validLenStr := strings.Split(condition, ":")[1]
-	validLen, err := strconv.Atoi(validLenStr)
+	validLen, err := strconv.Atoi(condition)
 	if err != nil {
 		return err
 	}
 	if len(value) != validLen {
-		return fmt.Errorf("%s, must be %d, not %d", errLength, validLen, len(value))
+		return fmt.Errorf("%w, must be %d, not %d", errLength, validLen, len(value))
 	}
-
 	return nil
 }
 
 func validateInSetString(condition, value string) error {
-	validSetStr := strings.Split(condition, ":")[1]
-	validSet := strings.Split(validSetStr, ",")
+	validSet := strings.Split(condition, ",")
 	valueInSet := false
 	for _, s := range validSet {
 		if value == s {
@@ -72,27 +73,25 @@ func validateInSetString(condition, value string) error {
 		}
 	}
 	if !valueInSet {
-		return fmt.Errorf("%s, must be one of %v, not %s", errNotInSet, validSet, value)
+		return fmt.Errorf("%w, must be one of %v, not %s", errNotInSet, validSet, value)
 	}
 
 	return nil
 }
 
 func validateRegexp(condition, value string) error {
-	reStr := strings.Split(condition, ":")[1]
-	re, err := regexp.Compile(reStr)
+	re, err := regexp.Compile(condition)
 	if err != nil {
 		return err
 	}
 	if value != re.FindString(value) {
-		return fmt.Errorf("%s: %s", errRegexp, reStr)
+		return fmt.Errorf("%w: %s", errRegexp, condition)
 	}
 	return nil
 }
 
 func validateInSetInt(condition string, value int64) error {
-	validSetStr := strings.Split(condition, ":")[1]
-	validSet := strings.Split(validSetStr, ",")
+	validSet := strings.Split(condition, ",")
 	valueInSet := false
 	for _, s := range validSet {
 		if strconv.Itoa(int(value)) == s {
@@ -101,102 +100,133 @@ func validateInSetInt(condition string, value int64) error {
 		}
 	}
 	if !valueInSet {
-		return fmt.Errorf("%s, must be one of %v, not %d", errNotInSet, validSet, value)
+		return fmt.Errorf("%w, must be one of %v, not %d", errNotInSet, validSet, value)
 	}
 
 	return nil
 }
 
 func validateMin(condition string, value int64) error {
-	minThreshStr := strings.Split(condition, ":")[1]
-	minThresh, err := strconv.Atoi(minThreshStr)
+	minThresh, err := strconv.Atoi(condition)
 	if err != nil {
 		return err
 	}
 	if value < int64(minThresh) {
-		return fmt.Errorf("%s, should be at least %d", errMinThreshold, minThresh)
+		return fmt.Errorf("%w, should be at least %d", errMinThreshold, minThresh)
 	}
 
 	return nil
 }
 
 func validateMax(condition string, value int64) error {
-	maxThreshStr := strings.Split(condition, ":")[1]
-	maxThresh, err := strconv.Atoi(maxThreshStr)
+	maxThresh, err := strconv.Atoi(condition)
 	if err != nil {
 		return err
 	}
 	if value > int64(maxThresh) {
-		return fmt.Errorf("%s, should be at most %d", errMaxThreshold, maxThresh)
+		return fmt.Errorf("%w, should be at most %d", errMaxThreshold, maxThresh)
 	}
 
 	return nil
 }
 
-func validateFieldByQuery(fv reflect.Value, sv reflect.StructField, query string) error {
+func validateStringField(v string, fn string, query string) error {
 	conditions := strings.Split(query, "|")
 	validationErrors := make(ValidationErrors, 0)
 	for _, condition := range conditions {
-		cond := strings.Split(condition, ":")[0]
-		switch fv.Kind() {
-		case reflect.String:
-			v := fv.String()
-			var validateFunc func(string, string) error
-			var validateErr error
-			switch cond {
-			case "len":
-				validateFunc = validateLength
-				validateErr = errLength
-			case "in":
-				validateFunc = validateInSetString
-				validateErr = errNotInSet
-			case "regexp":
-				validateFunc = validateRegexp
-				validateErr = errRegexp
-			default:
-				return fmt.Errorf("%s: %s for field %s", errUnknownValidationQuery, query, sv.Name)
+		condKeyWord := strings.Split(condition, ":")[0]
+		cond := strings.Split(condition, ":")[1]
+		var validateFunc func(string, string) error
+		var validateErr error
+		switch condKeyWord {
+		case "len":
+			validateFunc = validateLength
+			validateErr = errLength
+		case "in":
+			validateFunc = validateInSetString
+			validateErr = errNotInSet
+		case "regexp":
+			validateFunc = validateRegexp
+			validateErr = errRegexp
+		default:
+			return fmt.Errorf("%w: %s for field %s", errUnknownValidationQuery, query, fn)
+		}
+		err := validateFunc(cond, v)
+		if err != nil {
+			if !errors.Is(err, validateErr) {
+				return err
 			}
-			err := validateFunc(cond, v)
-			if err != nil {
-				if !errors.Is(err, validateErr) {
-					return err
-				}
-				validationErrors = append(validationErrors, ValidationError{Field: sv.Name, Err: err})
-			}
-		case reflect.Int:
-			v := fv.Int()
-			var validateFunc func(string, int64) error
-			var validateErr error
-			switch cond {
-			case "min":
-				validateFunc = validateMin
-				validateErr = errMinThreshold
-			case "max":
-				validateFunc = validateMax
-				validateErr = errMaxThreshold
-			case "in":
-				validateFunc = validateInSetInt
-				validateErr = errNotInSet
-			default:
-				return fmt.Errorf("%s: %s for field %s", errUnknownValidationQuery, query, sv.Name)
-			}
-			err := validateFunc(cond, v)
-			if err != nil {
-				if !errors.Is(err, validateErr) {
-					return err
-				}
-				validationErrors = append(validationErrors, ValidationError{Field: sv.Name, Err: err})
-			}
+			validationErrors = append(validationErrors, ValidationError{Field: fn, Err: err})
 		}
 	}
-
 	return validationErrors
+}
+
+func validateStringSliceField(v []string, fn string, query string) error {
+	fmt.Printf("input is %v\n", v)
+	for _, el := range v {
+		err := validateStringField(el, fn, query)
+		if err != nil {
+			var valErrs ValidationErrors
+			if errors.As(err, &valErrs) && len(valErrs) == 0 {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+func validateIntField(v int64, fn string, query string) error {
+	conditions := strings.Split(query, "|")
+	validationErrors := make(ValidationErrors, 0)
+	for _, condition := range conditions {
+		condKeyWord := strings.Split(condition, ":")[0]
+		cond := strings.Split(condition, ":")[1]
+		var validateFunc func(string, int64) error
+		var validateErr error
+		switch condKeyWord {
+		case "min":
+			validateFunc = validateMin
+			validateErr = errMinThreshold
+		case "max":
+			validateFunc = validateMax
+			validateErr = errMaxThreshold
+		case "in":
+			validateFunc = validateInSetInt
+			validateErr = errNotInSet
+		default:
+			return fmt.Errorf("%w: %s for field %s", errUnknownValidationQuery, query, fn)
+		}
+		err := validateFunc(cond, v)
+		if err != nil {
+			if !errors.Is(err, validateErr) {
+				return err
+			}
+			validationErrors = append(validationErrors, ValidationError{Field: fn, Err: err})
+		}
+	}
+	return validationErrors
+}
+
+func validateIntSliceField(v []int, fn string, query string) error {
+	for _, el := range v {
+		err := validateIntField(int64(el), fn, query)
+		if err != nil {
+			var valErrs ValidationErrors
+			if errors.As(err, &valErrs) && len(valErrs) == 0 {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
 }
 
 func Validate(v interface{}) error {
 	value := reflect.ValueOf(v)
 	if value.Kind() != reflect.Struct {
-		return fmt.Errorf("%s got %T", errWrongType, v)
+		return fmt.Errorf("%w got %T", errWrongType, v)
 	}
 
 	t := value.Type()
@@ -207,13 +237,39 @@ func Validate(v interface{}) error {
 		if validationQuery == "" {
 			continue
 		}
-		err := validateFieldByQuery(value.Field(i), field, validationQuery)
+		fieldVal := value.Field(i)
+		var err error
+		switch fieldVal.Kind() {
+		case reflect.String:
+			err = validateStringField(fieldVal.String(), field.Name, validationQuery)
+		case reflect.Int:
+			err = validateIntField(fieldVal.Int(), field.Name, validationQuery)
+		case reflect.Slice:
+			switch fieldVal.Type().Elem().Kind() {
+			case reflect.String:
+				arr, ok := fieldVal.Interface().([]string)
+				if !ok {
+					return fmt.Errorf("%w, field %s", errFieldType, field.Name)
+				}
+				err = validateStringSliceField(arr, field.Name, validationQuery)
+			case reflect.Int:
+				arr, ok := fieldVal.Interface().([]int)
+				if !ok {
+					return fmt.Errorf("%w, field %s", errFieldType, field.Name)
+				}
+				err = validateIntSliceField(arr, field.Name, validationQuery)
+			default:
+				return fmt.Errorf("%w, field %s", errFieldType, field.Name)
+			}
+		default:
+			return fmt.Errorf("%w, field %s", errFieldType, field.Name)
+		}
 		if err != nil {
-			var fieldValidationErrs *ValidationErrors
+			var fieldValidationErrs ValidationErrors
 			if !errors.As(err, &fieldValidationErrs) {
 				return err
 			}
-			validationErrors = append(validationErrors, *fieldValidationErrs...)
+			validationErrors = append(validationErrors, fieldValidationErrs...)
 		}
 	}
 
