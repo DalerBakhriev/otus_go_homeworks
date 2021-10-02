@@ -24,7 +24,7 @@ func TestRunCmd(t *testing.T) {
 		"UNSET": {Value: "", NeedRemove: true},
 	})
 
-	t.Run("correct_redturn_code", func(t *testing.T) {
+	t.Run("correct_redurn_code", func(t *testing.T) {
 		returnCode := RunCmd(cmd, env)
 		assert.Equal(t, 0, returnCode)
 	})

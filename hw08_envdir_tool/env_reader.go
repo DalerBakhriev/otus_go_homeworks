@@ -28,6 +28,7 @@ func ReadFileLine(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer file.Close()
 	fileReader := bufio.NewReader(file)
 	isPrefix := true
 	value := make([]byte, 0)
@@ -50,6 +51,7 @@ func ReadDir(dir string) (Environment, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer directory.Close()
 	dirFiles, err := directory.ReadDir(0)
 	if err != nil {
 		return nil, err
