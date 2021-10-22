@@ -1,9 +1,11 @@
 package hw09structvalidator
 
 import (
-	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type UserRole string
@@ -17,7 +19,7 @@ type (
 		Email  string   `validate:"regexp:^\\w+@\\w+\\.\\w+$"`
 		Role   UserRole `validate:"in:admin,stuff"`
 		Phones []string `validate:"len:11"`
-		meta   json.RawMessage
+		// meta   json.RawMessage
 	}
 
 	App struct {
@@ -38,23 +40,80 @@ type (
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
-		in          interface{}
-		expectedErr error
+		in              interface{}
+		expectedErr     error
+		expectedErrsNum int
 	}{
 		{
-			// Place your code here.
+			in:              Response{Code: 300},
+			expectedErr:     errNotInSet,
+			expectedErrsNum: 1,
 		},
-		// ...
-		// Place your code here.
+		{
+			in:              App{Version: "long_version_tag"},
+			expectedErr:     errLength,
+			expectedErrsNum: 1,
+		},
+		{
+			in: User{
+				ID:     strings.Repeat("q", 36),
+				Name:   "tstName",
+				Age:    51,
+				Role:   "admin",
+				Phones: []string{strings.Repeat("1", 11)},
+				Email:  "smth@mail.ru",
+			},
+			expectedErr:     errMaxThreshold,
+			expectedErrsNum: 1,
+		},
+		{
+			in: User{
+				ID:     strings.Repeat("q", 36),
+				Name:   "tstName",
+				Age:    17,
+				Role:   "admin",
+				Phones: []string{strings.Repeat("1", 11)},
+				Email:  "smth@mail.ru",
+			},
+			expectedErr:     errMinThreshold,
+			expectedErrsNum: 1,
+		},
+		{
+			in: User{
+				ID:     strings.Repeat("q", 36),
+				Name:   "tstName",
+				Age:    18,
+				Role:   "smth",
+				Phones: []string{strings.Repeat("1", 11)},
+				Email:  "smth@mail.ru",
+			},
+			expectedErr:     errNotInSet,
+			expectedErrsNum: 1,
+		},
+		{
+			in: User{
+				ID:     strings.Repeat("q", 36),
+				Name:   "tstName",
+				Age:    18,
+				Role:   "admin",
+				Phones: []string{strings.Repeat("1", 11), strings.Repeat("1", 9)},
+				Email:  "smth@mail.ru",
+			},
+			expectedErr:     errLength,
+			expectedErrsNum: 1,
+		},
 	}
 
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 			tt := tt
-			t.Parallel()
-
-			// Place your code here.
-			_ = tt
+			// t.Parallel()
+			err := Validate(tt.in)
+			assert.Error(t, err)
+			var validErrs ValidationErrors
+			assert.ErrorAs(t, err, &validErrs)
+			assert.Len(t, validErrs, tt.expectedErrsNum)
+			assert.Contains(t, validErrs[0].Error(), tt.expectedErr.Error())
 		})
 	}
 }
