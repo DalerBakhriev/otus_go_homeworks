@@ -1,0 +1,5 @@
+logger:
+    level: "INFO"
+
+db:
+    in_memory: true
