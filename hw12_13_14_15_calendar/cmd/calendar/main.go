@@ -3,24 +3,26 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/app"
-	"github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/logger"
-	internalhttp "github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/server/http"
-	memorystorage "github.com/fixme_my_friend/hw12_13_14_15_calendar/internal/storage/memory"
+	"github.com/DalerBakhriev/otus_go_homeworks/hw12_13_14_15_calendar/internal/app"
+	"github.com/DalerBakhriev/otus_go_homeworks/hw12_13_14_15_calendar/internal/logger"
+	internalhttp "github.com/DalerBakhriev/otus_go_homeworks/hw12_13_14_15_calendar/internal/server/http"
+	"github.com/DalerBakhriev/otus_go_homeworks/hw12_13_14_15_calendar/internal/store"
+	"github.com/DalerBakhriev/otus_go_homeworks/hw12_13_14_15_calendar/internal/store/memorystore"
+	"github.com/DalerBakhriev/otus_go_homeworks/hw12_13_14_15_calendar/internal/store/sqlstore"
+	"github.com/jmoiron/sqlx"
 )
 
-var configFile string
-
-func init() {
-	flag.StringVar(&configFile, "config", "/etc/calendar/config.toml", "Path to configuration file")
-}
-
 func main() {
+
+	var configFile string
+	flag.StringVar(&configFile, "config", "/etc/calendar/config.toml", "Path to configuration file")
+
 	flag.Parse()
 
 	if flag.Arg(0) == "version" {
@@ -28,16 +30,31 @@ func main() {
 		return
 	}
 
-	config := NewConfig()
-	logg := logger.New(config.Logger.Level)
+	config := NewConfig(configFile)
+	logg := logger.New(config.Logger.Level, config.Logger.File)
+	defer logg.Sync()
 
-	storage := memorystorage.New()
-	calendar := app.New(logg, storage)
+	var store store.Store
+	if config.DB.inMemory {
+		store = memorystore.New()
+	} else {
+		db, err := sqlx.Connect("postgres", config.DB.url)
+		if err != nil {
+			panic(fmt.Errorf("connect to db: %w", err))
+		}
+		store = sqlstore.New(db)
+	}
+
+	calendar := app.New(logg, store)
 
 	server := internalhttp.NewServer(logg, calendar)
 
-	ctx, cancel := signal.NotifyContext(context.Background(),
-		syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGHUP,
+	)
 	defer cancel()
 
 	go func() {
