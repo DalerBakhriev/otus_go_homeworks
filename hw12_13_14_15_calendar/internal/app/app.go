@@ -3,12 +3,13 @@ package app
 import (
 	"context"
 
+	"github.com/DalerBakhriev/otus_go_homeworks/hw12_13_14_15_calendar/internal/model"
 	"github.com/DalerBakhriev/otus_go_homeworks/hw12_13_14_15_calendar/internal/store"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
 )
 
-type App struct { // TODO
+type App struct {
 	logger *zap.Logger
 	store  store.Store
 }
@@ -27,9 +28,8 @@ func NewDB(databaseURL string) (*sqlx.DB, error) {
 }
 
 func (a *App) CreateEvent(ctx context.Context, id, title string) error {
-	// TODO
-	return nil
-	// return a.storage.CreateEvent(storage.Event{ID: id, Title: title})
+	event := &model.Event{
+		Title: title,
+	}
+	return a.store.Event().Create(event)
 }
-
-// TODO

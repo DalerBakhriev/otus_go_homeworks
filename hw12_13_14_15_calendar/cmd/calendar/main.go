@@ -35,10 +35,10 @@ func main() {
 	defer logg.Sync()
 
 	var store store.Store
-	if config.DB.inMemory {
+	if config.DB.InMemory {
 		store = memorystore.New()
 	} else {
-		db, err := sqlx.Connect("postgres", config.DB.url)
+		db, err := sqlx.Connect("postgres", config.DB.URL())
 		if err != nil {
 			panic(fmt.Errorf("connect to db: %w", err))
 		}

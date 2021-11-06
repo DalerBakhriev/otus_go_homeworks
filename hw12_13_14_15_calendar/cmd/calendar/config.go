@@ -12,23 +12,32 @@ import (
 type Config struct {
 	Logger LoggerConf
 	DB     DBConf
-	// TODO
 }
 
 type DBConf struct {
-	url      string
-	inMemory bool
+	Host     string
+	Port     string
+	Username string
+	Password string
+	DbName   string
+	InMemory bool
+}
+
+func (d *DBConf) URL() string {
+	return "postgres://" + d.Username + ":" + d.Password + "@" + d.Host + ":5432/" + d.DbName
 }
 
 type LoggerConf struct {
 	File  string
 	Level string
-	// TODO
 }
 
 func NewConfig(configPath string) Config {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(configPath)
+
+	viper.SetEnvPrefix("db")
+	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err != nil {
 		panic(fmt.Errorf("read config file: %w", err))
 	}
@@ -39,5 +48,3 @@ func NewConfig(configPath string) Config {
 
 	return c
 }
-
-// TODO

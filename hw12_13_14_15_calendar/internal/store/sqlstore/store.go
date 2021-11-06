@@ -7,7 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type Store struct { // TODO
+type Store struct {
 	db              *sqlx.DB
 	eventRepository *EventRepository
 }
